@@ -16,7 +16,9 @@ Use this skill to turn a local meeting audio/video file into a same-folder outpu
 
 ## Interaction Policy
 
-At the start, confirm the interaction language if it is ambiguous. Default to the language used by the user in their request.
+All assistant replies for this skill must use the same language as the user's current message. This applies to questions, progress updates, error messages, and the final response. Do not ask the user to choose an interaction language. If the user changes language in a later message, switch to that language in the next reply.
+
+Output document language is separate from reply language. Write generated notes in the user's current message language unless the user explicitly asks for a different output language or translation.
 
 Any workflow choice must be explicitly chosen by the user unless their prompt already specifies it. A recommendation is only a recommendation; never treat it as consent to proceed. If a choice is missing, ask before downloading models, running ASR, generating optional outputs, or translating files.
 
@@ -47,7 +49,7 @@ summary-en.md
 report-en.md
 ```
 
-Use the requested interaction language for questions, progress updates, and final response unless the user changes it.
+Use the user's current message language for all conversation replies.
 
 ## Workflow
 
@@ -151,7 +153,7 @@ If Homebrew is unavailable, tell the user which system dependency is missing and
 
 ## Decision Gates
 
-When the prompt does not already answer these items, ask before continuing. Use the interaction language.
+When the prompt does not already answer these items, ask before continuing. Use the user's current message language.
 
 Example question batch:
 
@@ -286,7 +288,7 @@ After `transcript.md` or `subtitles.txt` exists, generate:
 <output-dir>/summary.md
 ```
 
-`summary.md` should be polished meeting notes, not a raw transcript. Write it in the interaction language unless the user specifies otherwise. Use this structure unless the user asks for a different format:
+`summary.md` should be polished meeting notes, not a raw transcript. Write it in the user's current message language unless the user specifies otherwise. Use this structure unless the user asks for a different format:
 
 ```markdown
 # Meeting Summary
