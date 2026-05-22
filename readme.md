@@ -63,10 +63,11 @@ From this repository root:
 
 ```bash
 # Check the runner
-.venv/bin/python skills/meeting-auto-summary/run.py --help
+SKILL_DIR="skills/meeting-auto-summary"
+"$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/run.py" --help
 
 # Transcribe a media file into an output directory
-.venv/bin/python skills/meeting-auto-summary/run.py example/iShot_2026-05-22_14.54.02.mp4 \
+"$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/run.py" example/iShot_2026-05-22_14.54.02.mp4 \
   --model skills/meeting-auto-summary/model/Qwen3-ASR-0.6B-6bit \
   --speaker-mode diarize \
   --diarization-model skills/meeting-auto-summary/model/diar_sortformer_4spk-v1-fp16 \
@@ -87,6 +88,70 @@ skills/meeting-auto-summary/model/
 ```
 
 Use `rsync` instead of `cp -R` so updates replace old script files cleanly while keeping the folder structure.
+
+### Choose a Qwen3-ASR MLX Model
+
+The skill can use any local Qwen3-ASR MLX model directory. During setup, the agent should inspect your Mac and recommend a model, but you can still choose a smaller model for speed or memory headroom.
+
+Model collection:
+
+```text
+https://huggingface.co/collections/mlx-community/qwen3-asr
+```
+
+Check your Mac:
+
+```bash
+system_profiler SPHardwareDataType | sed -n '1,30p'
+sysctl -n hw.memsize
+```
+
+Recommended defaults:
+
+| Mac memory | Recommended model | When to choose it |
+|---|---|---|
+| 8 GB | `mlx-community/Qwen3-ASR-0.6B-4bit` | Safest small model |
+| 16 GB | `mlx-community/Qwen3-ASR-0.6B-6bit` | Balanced default |
+| 24-36 GB | `mlx-community/Qwen3-ASR-1.7B-4bit` | Better quality, moderate memory |
+| 48 GB+ | `mlx-community/Qwen3-ASR-1.7B-6bit` | Higher quality |
+| 64 GB+ | `mlx-community/Qwen3-ASR-1.7B-8bit` or `mlx-community/Qwen3-ASR-1.7B-bf16` | Quality first, slower/heavier |
+
+Install a selected model:
+
+```bash
+SKILL_DIR="skills/meeting-auto-summary"
+mkdir -p "$SKILL_DIR/model"
+huggingface-cli download mlx-community/Qwen3-ASR-0.6B-6bit \
+  --local-dir "$SKILL_DIR/model/Qwen3-ASR-0.6B-6bit"
+```
+
+Available variants to consider:
+
+```text
+mlx-community/Qwen3-ASR-0.6B-4bit
+mlx-community/Qwen3-ASR-0.6B-5bit
+mlx-community/Qwen3-ASR-0.6B-6bit
+mlx-community/Qwen3-ASR-0.6B-8bit
+mlx-community/Qwen3-ASR-0.6B-bf16
+mlx-community/Qwen3-ASR-1.7B-4bit
+mlx-community/Qwen3-ASR-1.7B-5bit
+mlx-community/Qwen3-ASR-1.7B-6bit
+mlx-community/Qwen3-ASR-1.7B-8bit
+mlx-community/Qwen3-ASR-1.7B-bf16
+```
+
+Speaker diarization model:
+
+```text
+https://huggingface.co/mlx-community/diar_sortformer_4spk-v1-fp16
+```
+
+Install it with:
+
+```bash
+huggingface-cli download mlx-community/diar_sortformer_4spk-v1-fp16 \
+  --local-dir "$SKILL_DIR/model/diar_sortformer_4spk-v1-fp16"
+```
 
 ### Claude Code
 
@@ -196,11 +261,13 @@ If your Hermes build only loads `~/.hermes/skills`, point its external skill dir
 
 ## 🧰 Environment
 
+The environment must be fully installed before transcription. Do not run the long ASR job until Python, MLX Audio, ffmpeg, Hugging Face download tooling, and the selected models all pass checks.
+
 Required:
 
 | Dependency | Purpose |
 |---|---|
-| Python virtualenv `.venv` | Runs the transcription scripts |
+| Skill-local Python virtualenv `$SKILL_DIR/.venv` | Runs the transcription scripts |
 | `mlx-audio` | ASR and diarization backend |
 | `ffmpeg` | Extracts 16 kHz mono audio from video |
 | `Qwen3-ASR-0.6B-6bit` | Local speech recognition model |
@@ -209,12 +276,24 @@ Required:
 Check:
 
 ```bash
-test -x .venv/bin/python
+SKILL_DIR="skills/meeting-auto-summary"
+test -x "$SKILL_DIR/.venv/bin/python"
 ffmpeg -version
-.venv/bin/python - <<'PY'
+huggingface-cli --help
+"$SKILL_DIR/.venv/bin/python" - <<'PY'
 import mlx_audio
 print("mlx_audio ok")
 PY
+```
+
+Install the base Python environment when missing:
+
+```bash
+SKILL_DIR="skills/meeting-auto-summary"
+python3 -m venv "$SKILL_DIR/.venv"
+"$SKILL_DIR/.venv/bin/python" -m pip install -U pip
+"$SKILL_DIR/.venv/bin/python" -m pip install -U mlx-audio huggingface_hub
+brew install ffmpeg
 ```
 
 ---

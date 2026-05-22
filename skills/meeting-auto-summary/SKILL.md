@@ -38,12 +38,13 @@ Use the requested interaction language for questions, progress updates, and fina
 ## Workflow
 
 1. Prepare and validate the environment.
-2. Ask for missing input path, output directory, interaction language, and translation settings.
-3. Run the local transcription script once with `--output-dir`.
-4. Generate `summary.md` from `transcript.md` or `subtitles.txt`.
-5. Generate `report.md` if requested or if the user asks for a formal/shareable meeting report.
-6. Generate translated `-<suffix>` variants if requested.
-7. Verify expected files exist.
+2. Select or install the ASR model variant.
+3. Ask for missing input path, output directory, interaction language, and translation settings.
+4. Run the local transcription script once with `--output-dir`.
+5. Generate `summary.md` from `transcript.md` or `subtitles.txt`.
+6. Generate `report.md` if requested or if the user asks for a formal/shareable meeting report.
+7. Generate translated `-<suffix>` variants if requested.
+8. Verify expected files exist.
 
 ## Environment
 
@@ -57,6 +58,22 @@ skills/meeting-auto-summary/
     ├── Qwen3-ASR-0.6B-6bit/
     └── diar_sortformer_4spk-v1-fp16/
 ```
+
+Environment preparation is mandatory. Do not run transcription until every required dependency and model is installed and verified. If anything is missing, guide the user through installation and continue checking until the environment is complete.
+
+The Python virtual environment must be created in the same directory as this `SKILL.md` file:
+
+```text
+<skill-dir>/.venv
+```
+
+In commands, this path is always:
+
+```bash
+"$SKILL_DIR/.venv"
+```
+
+Do not use a workspace-root `.venv`, system Python, Conda environment, or any unrelated project environment for this skill.
 
 Before running transcription, resolve the installed skill directory first:
 
@@ -72,17 +89,118 @@ SKILL_DIR="$HOME/.claude/skills/meeting-auto-summary"
 SKILL_DIR="$HOME/.agents/skills/meeting-auto-summary"
 ```
 
-Then check:
+Then inspect the Mac and check the runtime:
 
 ```bash
-test -x .venv/bin/python
-test -d "$SKILL_DIR/model/Qwen3-ASR-0.6B-6bit"
+system_profiler SPHardwareDataType | sed -n '1,30p'
+sysctl -n hw.memsize
+test -x "$SKILL_DIR/.venv/bin/python"
 test -d "$SKILL_DIR/model/diar_sortformer_4spk-v1-fp16"
 ffmpeg -version
-.venv/bin/python "$SKILL_DIR/run.py" --help
+huggingface-cli --help
+"$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/run.py" --help
+"$SKILL_DIR/.venv/bin/python" - <<'PY'
+import mlx_audio
+print("mlx_audio ok")
+PY
 ```
 
-If any check fails, report the missing dependency/path and stop before running the long job.
+If any check fails, stop the workflow and install or ask the user to install the missing part. After installation, rerun the full check. Do not accept partial setup as "good enough".
+
+Required setup items:
+
+| Item | Required state |
+|---|---|
+| Python virtual environment | `$SKILL_DIR/.venv/bin/python` exists and can run the skill runner |
+| `mlx-audio` | Import succeeds inside `$SKILL_DIR/.venv` |
+| `ffmpeg` | `ffmpeg -version` succeeds |
+| Hugging Face CLI | `huggingface-cli --help` succeeds or an equivalent download method is available |
+| Qwen3-ASR MLX model | The selected ASR model directory exists under `$SKILL_DIR/model/` |
+| Sortformer diarization model | `$SKILL_DIR/model/diar_sortformer_4spk-v1-fp16` exists when speaker separation is requested |
+
+Typical install commands:
+
+```bash
+python3 -m venv "$SKILL_DIR/.venv"
+"$SKILL_DIR/.venv/bin/python" -m pip install -U pip
+"$SKILL_DIR/.venv/bin/python" -m pip install -U mlx-audio huggingface_hub
+brew install ffmpeg
+```
+
+If Homebrew is unavailable, tell the user which system dependency is missing and ask them to install `ffmpeg` with their package manager.
+
+## ASR Model Selection
+
+During environment preparation, ask the user which Qwen3-ASR MLX model variant they want to use. First inspect the system memory and give a recommendation, but always show the available list because a powerful Mac may still prefer a smaller/faster model.
+
+Use the MLX Community Qwen3-ASR collection as the source for available ASR models:
+
+```text
+https://huggingface.co/collections/mlx-community/qwen3-asr
+```
+
+Use this recommendation heuristic:
+
+| Mac memory | Recommended default | Notes |
+|---|---|---|
+| 8 GB | `mlx-community/Qwen3-ASR-0.6B-4bit` | Smallest and safest option. |
+| 16 GB | `mlx-community/Qwen3-ASR-0.6B-6bit` | Balanced default. |
+| 24-36 GB | `mlx-community/Qwen3-ASR-1.7B-4bit` | Better recognition quality with moderate memory. |
+| 48 GB or more | `mlx-community/Qwen3-ASR-1.7B-6bit` | Higher quality; user may still choose a smaller model for speed. |
+| 64 GB or more | `mlx-community/Qwen3-ASR-1.7B-8bit` or `mlx-community/Qwen3-ASR-1.7B-bf16` | Use only when the user prioritizes quality over memory/speed. |
+
+Available MLX ASR variants to present:
+
+```text
+mlx-community/Qwen3-ASR-0.6B-4bit
+mlx-community/Qwen3-ASR-0.6B-5bit
+mlx-community/Qwen3-ASR-0.6B-6bit
+mlx-community/Qwen3-ASR-0.6B-8bit
+mlx-community/Qwen3-ASR-0.6B-bf16
+mlx-community/Qwen3-ASR-1.7B-4bit
+mlx-community/Qwen3-ASR-1.7B-5bit
+mlx-community/Qwen3-ASR-1.7B-6bit
+mlx-community/Qwen3-ASR-1.7B-8bit
+mlx-community/Qwen3-ASR-1.7B-bf16
+```
+
+If the chosen model is not installed, install it under the skill model directory:
+
+```bash
+mkdir -p "$SKILL_DIR/model"
+huggingface-cli download mlx-community/Qwen3-ASR-0.6B-6bit \
+  --local-dir "$SKILL_DIR/model/Qwen3-ASR-0.6B-6bit"
+```
+
+Replace both the Hugging Face repository name and local directory name with the user's chosen variant. After download, set:
+
+```bash
+ASR_MODEL_DIR="$SKILL_DIR/model/<chosen-qwen3-asr-folder>"
+```
+
+If the model already exists locally, set `ASR_MODEL_DIR` to that path and do not redownload.
+
+## Diarization Model
+
+Use the MLX Community Sortformer speaker diarization model for speaker separation:
+
+```text
+https://huggingface.co/mlx-community/diar_sortformer_4spk-v1-fp16
+```
+
+If it is not installed, download it under the skill model directory:
+
+```bash
+mkdir -p "$SKILL_DIR/model"
+huggingface-cli download mlx-community/diar_sortformer_4spk-v1-fp16 \
+  --local-dir "$SKILL_DIR/model/diar_sortformer_4spk-v1-fp16"
+```
+
+Then set:
+
+```bash
+DIARIZATION_MODEL_DIR="$SKILL_DIR/model/diar_sortformer_4spk-v1-fp16"
+```
 
 ## Required Inputs
 
@@ -104,8 +222,8 @@ If the user provides an output directory, keep generated files directly under th
 Run from the project root:
 
 ```bash
-.venv/bin/python "$SKILL_DIR/run.py" "<input-media>" \
-  --model "$SKILL_DIR/model/Qwen3-ASR-0.6B-6bit" \
+"$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/run.py" "<input-media>" \
+  --model "$ASR_MODEL_DIR" \
   --speaker-mode diarize \
   --diarization-model "$SKILL_DIR/model/diar_sortformer_4spk-v1-fp16" \
   --output-dir "<output-dir>" \

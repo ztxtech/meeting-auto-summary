@@ -56,10 +56,11 @@ report-<lang>.md
 
 ```bash
 # 检查 runner
-.venv/bin/python skills/meeting-auto-summary/run.py --help
+SKILL_DIR="skills/meeting-auto-summary"
+"$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/run.py" --help
 
 # 将音视频转写到输出目录
-.venv/bin/python skills/meeting-auto-summary/run.py example/iShot_2026-05-22_14.54.02.mp4 \
+"$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/run.py" example/iShot_2026-05-22_14.54.02.mp4 \
   --model skills/meeting-auto-summary/model/Qwen3-ASR-0.6B-6bit \
   --speaker-mode diarize \
   --diarization-model skills/meeting-auto-summary/model/diar_sortformer_4spk-v1-fp16 \
@@ -80,6 +81,70 @@ skills/meeting-auto-summary/model/
 ```
 
 建议使用 `rsync` 而不是 `cp -R`，这样更新时可以干净地替换旧脚本文件，同时保留目录结构。
+
+### 选择 Qwen3-ASR MLX 模型
+
+这个 skill 可以使用任意本地 Qwen3-ASR MLX 模型目录。环境准备阶段，Agent 应该先检查你的 Mac 配置并给出推荐，但你仍然可以为了速度或内存余量主动选择更小的模型。
+
+模型 collection：
+
+```text
+https://huggingface.co/collections/mlx-community/qwen3-asr
+```
+
+检查 Mac 配置：
+
+```bash
+system_profiler SPHardwareDataType | sed -n '1,30p'
+sysctl -n hw.memsize
+```
+
+推荐默认值：
+
+| Mac 内存 | 推荐模型 | 适用场景 |
+|---|---|---|
+| 8 GB | `mlx-community/Qwen3-ASR-0.6B-4bit` | 最稳妥的小模型 |
+| 16 GB | `mlx-community/Qwen3-ASR-0.6B-6bit` | 平衡默认选择 |
+| 24-36 GB | `mlx-community/Qwen3-ASR-1.7B-4bit` | 更好识别质量，内存压力适中 |
+| 48 GB+ | `mlx-community/Qwen3-ASR-1.7B-6bit` | 更高质量 |
+| 64 GB+ | `mlx-community/Qwen3-ASR-1.7B-8bit` 或 `mlx-community/Qwen3-ASR-1.7B-bf16` | 质量优先，速度和内存成本更高 |
+
+安装所选模型：
+
+```bash
+SKILL_DIR="skills/meeting-auto-summary"
+mkdir -p "$SKILL_DIR/model"
+huggingface-cli download mlx-community/Qwen3-ASR-0.6B-6bit \
+  --local-dir "$SKILL_DIR/model/Qwen3-ASR-0.6B-6bit"
+```
+
+可选版本：
+
+```text
+mlx-community/Qwen3-ASR-0.6B-4bit
+mlx-community/Qwen3-ASR-0.6B-5bit
+mlx-community/Qwen3-ASR-0.6B-6bit
+mlx-community/Qwen3-ASR-0.6B-8bit
+mlx-community/Qwen3-ASR-0.6B-bf16
+mlx-community/Qwen3-ASR-1.7B-4bit
+mlx-community/Qwen3-ASR-1.7B-5bit
+mlx-community/Qwen3-ASR-1.7B-6bit
+mlx-community/Qwen3-ASR-1.7B-8bit
+mlx-community/Qwen3-ASR-1.7B-bf16
+```
+
+人声区分模型：
+
+```text
+https://huggingface.co/mlx-community/diar_sortformer_4spk-v1-fp16
+```
+
+安装命令：
+
+```bash
+huggingface-cli download mlx-community/diar_sortformer_4spk-v1-fp16 \
+  --local-dir "$SKILL_DIR/model/diar_sortformer_4spk-v1-fp16"
+```
 
 ### Claude Code
 
@@ -189,11 +254,13 @@ rsync -a --delete skills/meeting-auto-summary/ .hermes/skills/meeting-auto-summa
 
 ## 🧰 环境
 
+转写前必须完整安装环境。不要在 Python、MLX Audio、ffmpeg、Hugging Face 下载工具和所选模型全部检查通过之前启动长时间 ASR 任务。
+
 依赖：
 
 | 依赖 | 用途 |
 |---|---|
-| Python 虚拟环境 `.venv` | 运行转写脚本 |
+| skill 本地 Python 虚拟环境 `$SKILL_DIR/.venv` | 运行转写脚本 |
 | `mlx-audio` | ASR 和人声区分后端 |
 | `ffmpeg` | 从视频抽取 16 kHz 单声道音频 |
 | `Qwen3-ASR-0.6B-6bit` | 本地语音识别模型 |
@@ -202,12 +269,24 @@ rsync -a --delete skills/meeting-auto-summary/ .hermes/skills/meeting-auto-summa
 检查：
 
 ```bash
-test -x .venv/bin/python
+SKILL_DIR="skills/meeting-auto-summary"
+test -x "$SKILL_DIR/.venv/bin/python"
 ffmpeg -version
-.venv/bin/python - <<'PY'
+huggingface-cli --help
+"$SKILL_DIR/.venv/bin/python" - <<'PY'
 import mlx_audio
 print("mlx_audio ok")
 PY
+```
+
+缺少基础 Python 环境时安装：
+
+```bash
+SKILL_DIR="skills/meeting-auto-summary"
+python3 -m venv "$SKILL_DIR/.venv"
+"$SKILL_DIR/.venv/bin/python" -m pip install -U pip
+"$SKILL_DIR/.venv/bin/python" -m pip install -U mlx-audio huggingface_hub
+brew install ffmpeg
 ```
 
 ---
