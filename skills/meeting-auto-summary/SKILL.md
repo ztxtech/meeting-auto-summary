@@ -18,7 +18,21 @@ Use this skill to turn a local meeting audio/video file into a same-folder outpu
 
 At the start, confirm the interaction language if it is ambiguous. Default to the language used by the user in their request.
 
-Ask whether the transcript-derived text outputs should be translated. If the user wants translation, ask for:
+Any workflow choice must be explicitly chosen by the user unless their prompt already specifies it. A recommendation is only a recommendation; never treat it as consent to proceed. If a choice is missing, ask before downloading models, running ASR, generating optional outputs, or translating files.
+
+For choices, show the recommended option first and explain the tradeoff briefly. Do not auto-select the recommendation after showing it. Wait for the user's answer.
+
+Required decision gates:
+
+- ASR model variant.
+- Whether to enable speaker separation / diarization.
+- Whether transcript-derived outputs should be translated.
+- Whether to generate `report.md` in addition to `summary.md`.
+- Output directory when the user has not explicitly provided one.
+
+Ask these decisions in one concise batch when possible. If the user explicitly specifies some choices in the prompt, only ask for the missing choices. If the user explicitly asks to use defaults, present the defaults and ask for confirmation before continuing.
+
+For translation, ask whether the transcript-derived text outputs should be translated. If the user wants translation, ask for:
 
 - Target language name, for example `English`, `Japanese`, or `Chinese`.
 - File suffix, preferably an ISO-like short code such as `en`, `ja`, or `zh`.
@@ -38,13 +52,14 @@ Use the requested interaction language for questions, progress updates, and fina
 ## Workflow
 
 1. Prepare and validate the environment.
-2. Select or install the ASR model variant.
-3. Ask for missing input path, output directory, interaction language, and translation settings.
-4. Run the local transcription script once with `--output-dir`.
-5. Generate `summary.md` from `transcript.md` or `subtitles.txt`.
-6. Generate `report.md` if requested or if the user asks for a formal/shareable meeting report.
-7. Generate translated `-<suffix>` variants if requested.
-8. Verify expected files exist.
+2. Ask for missing input path and all missing decision-gate choices.
+3. Select or install the user-selected ASR model variant.
+4. Install the diarization model only if the user chose speaker separation.
+5. Run the local transcription script once with `--output-dir`.
+6. Generate `summary.md` from `transcript.md` or `subtitles.txt`.
+7. Generate `report.md` only if requested or explicitly chosen.
+8. Generate translated `-<suffix>` variants only if requested or explicitly chosen.
+9. Verify expected files exist.
 
 ## Environment
 
@@ -59,7 +74,7 @@ skills/meeting-auto-summary/
     └── diar_sortformer_4spk-v1-fp16/
 ```
 
-Environment preparation is mandatory. Do not run transcription until every required dependency and model is installed and verified. If anything is missing, guide the user through installation and continue checking until the environment is complete.
+Environment preparation is mandatory. Do not run transcription until every required dependency and every user-selected model is installed and verified. If anything is missing, guide the user through installation and continue checking until the environment is complete.
 
 The Python virtual environment must be created in the same directory as this `SKILL.md` file:
 
@@ -89,13 +104,12 @@ SKILL_DIR="$HOME/.claude/skills/meeting-auto-summary"
 SKILL_DIR="$HOME/.agents/skills/meeting-auto-summary"
 ```
 
-Then inspect the Mac and check the runtime:
+Then inspect the Mac and check the base runtime:
 
 ```bash
 system_profiler SPHardwareDataType | sed -n '1,30p'
 sysctl -n hw.memsize
 test -x "$SKILL_DIR/.venv/bin/python"
-test -d "$SKILL_DIR/model/diar_sortformer_4spk-v1-fp16"
 ffmpeg -version
 huggingface-cli --help
 "$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/run.py" --help
@@ -103,6 +117,12 @@ huggingface-cli --help
 import mlx_audio
 print("mlx_audio ok")
 PY
+```
+
+After the user selects speaker separation, also check:
+
+```bash
+test -d "$SKILL_DIR/model/diar_sortformer_4spk-v1-fp16"
 ```
 
 If any check fails, stop the workflow and install or ask the user to install the missing part. After installation, rerun the full check. Do not accept partial setup as "good enough".
@@ -116,7 +136,7 @@ Required setup items:
 | `ffmpeg` | `ffmpeg -version` succeeds |
 | Hugging Face CLI | `huggingface-cli --help` succeeds or an equivalent download method is available |
 | Qwen3-ASR MLX model | The selected ASR model directory exists under `$SKILL_DIR/model/` |
-| Sortformer diarization model | `$SKILL_DIR/model/diar_sortformer_4spk-v1-fp16` exists when speaker separation is requested |
+| Sortformer diarization model | `$SKILL_DIR/model/diar_sortformer_4spk-v1-fp16` exists only when speaker separation is requested |
 
 Typical install commands:
 
@@ -129,9 +149,29 @@ brew install ffmpeg
 
 If Homebrew is unavailable, tell the user which system dependency is missing and ask them to install `ffmpeg` with their package manager.
 
+## Decision Gates
+
+When the prompt does not already answer these items, ask before continuing. Use the interaction language.
+
+Example question batch:
+
+```text
+I found/received the input file. Before I run transcription, please choose:
+
+1. ASR model: recommended `mlx-community/Qwen3-ASR-0.6B-6bit` for this Mac, or choose another from the list below.
+2. Speaker separation: yes/no. Recommended: yes for multi-person meetings.
+3. Translation: no, or target language + suffix such as `English/en`.
+4. Report: generate only `summary.md`, or also generate `report.md`.
+5. Output directory: use `<project-root>/tmp/<input-file-stem>/`, or provide another path.
+```
+
+Proceed only after the user answers the missing choices. If the answer is ambiguous, ask a targeted follow-up.
+
 ## ASR Model Selection
 
 During environment preparation, ask the user which Qwen3-ASR MLX model variant they want to use. First inspect the system memory and give a recommendation, but always show the available list because a powerful Mac may still prefer a smaller/faster model.
+
+Do not run with the recommended ASR model until the user explicitly chooses or confirms it.
 
 Use the MLX Community Qwen3-ASR collection as the source for available ASR models:
 
@@ -202,6 +242,8 @@ Then set:
 DIARIZATION_MODEL_DIR="$SKILL_DIR/model/diar_sortformer_4spk-v1-fp16"
 ```
 
+Only download or use the diarization model after the user explicitly chooses speaker separation. If the user chooses no speaker separation, run with `--speaker-mode none` and do not require the diarization model check.
+
 ## Required Inputs
 
 You need:
@@ -209,7 +251,7 @@ You need:
 - Input media path: local audio or video file.
 - Output directory: where generated files should be written.
 
-If the user does not provide either value, ask before running. If the user provides only the input file, default the output directory to:
+If the user does not provide either value, ask before running. If the user provides only the input file, recommend this output directory but ask the user to confirm or replace it:
 
 ```text
 <project-root>/tmp/<input-file-stem>/

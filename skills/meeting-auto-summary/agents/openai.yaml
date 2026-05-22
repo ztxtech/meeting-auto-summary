@@ -1,4 +1,4 @@
 interface:
   display_name: "Meeting Auto Summary"
   short_description: "Transcribe meetings and draft notes"
-  default_prompt: "Use $meeting-auto-summary to transcribe this meeting video and create summary.md."
+  default_prompt: "Use $meeting-auto-summary to transcribe this meeting video. Ask me to choose the ASR model, speaker separation, translation, report generation, and output directory before running."
