@@ -23,6 +23,7 @@ It bundles a small local ASR pipeline based on **Qwen3-ASR MLX** and a lightweig
   <img src="https://img.shields.io/badge/MLX-Audio-06B6D4?style=flat" alt="MLX Audio">
   <img src="https://img.shields.io/badge/ffmpeg-required-EC4899?style=flat" alt="ffmpeg">
   <img src="https://img.shields.io/badge/Apple_Silicon-recommended-111827?style=flat" alt="Apple Silicon">
+  <a href="https://deepwiki.com/ztxtech/meeting-auto-summary"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
 ---
@@ -138,13 +139,13 @@ sysctl -n hw.memsize
 
 Recommended defaults:
 
-| Mac memory | Recommended model | When to choose it |
-|---|---|---|
-| 8 GB | `mlx-community/Qwen3-ASR-0.6B-4bit` | Safest small model |
-| 16 GB | `mlx-community/Qwen3-ASR-0.6B-6bit` | Balanced default |
-| 24-36 GB | `mlx-community/Qwen3-ASR-1.7B-4bit` | Better quality, moderate memory |
-| 48 GB+ | `mlx-community/Qwen3-ASR-1.7B-6bit` | Higher quality |
-| 64 GB+ | `mlx-community/Qwen3-ASR-1.7B-8bit` or `mlx-community/Qwen3-ASR-1.7B-bf16` | Quality first, slower/heavier |
+| Mac memory | Recommended model                                                          | When to choose it               |
+| ---------- | -------------------------------------------------------------------------- | ------------------------------- |
+| 8 GB       | `mlx-community/Qwen3-ASR-0.6B-4bit`                                        | Safest small model              |
+| 16 GB      | `mlx-community/Qwen3-ASR-0.6B-6bit`                                        | Balanced default                |
+| 24-36 GB   | `mlx-community/Qwen3-ASR-1.7B-4bit`                                        | Better quality, moderate memory |
+| 48 GB+     | `mlx-community/Qwen3-ASR-1.7B-6bit`                                        | Higher quality                  |
+| 64 GB+     | `mlx-community/Qwen3-ASR-1.7B-8bit` or `mlx-community/Qwen3-ASR-1.7B-bf16` | Quality first, slower/heavier   |
 
 Install a selected model:
 
@@ -295,13 +296,13 @@ The environment must be fully installed before transcription. Do not run the lon
 
 Required:
 
-| Dependency | Purpose |
-|---|---|
-| Skill-local Python virtualenv `$SKILL_DIR/.venv` | Runs the transcription scripts |
-| `mlx-audio` | ASR and diarization backend |
-| `ffmpeg` | Extracts 16 kHz mono audio from video |
-| `Qwen3-ASR-0.6B-6bit` | Local speech recognition model |
-| `diar_sortformer_4spk-v1-fp16` | Local MLX speaker diarization model |
+| Dependency                                       | Purpose                               |
+| ------------------------------------------------ | ------------------------------------- |
+| Skill-local Python virtualenv `$SKILL_DIR/.venv` | Runs the transcription scripts        |
+| `mlx-audio`                                      | ASR and diarization backend           |
+| `ffmpeg`                                         | Extracts 16 kHz mono audio from video |
+| `Qwen3-ASR-0.6B-6bit`                            | Local speech recognition model        |
+| `diar_sortformer_4spk-v1-fp16`                   | Local MLX speaker diarization model   |
 
 Check:
 
@@ -332,14 +333,14 @@ brew install ffmpeg
 
 `--output-dir` mode writes:
 
-| File | Description |
-|---|---|
-| `audio.wav` | Extracted 16 kHz mono audio |
+| File            | Description                                                         |
+| --------------- | ------------------------------------------------------------------- |
+| `audio.wav`     | Extracted 16 kHz mono audio                                         |
 | `transcript.md` | Markdown transcript with speaker labels when diarization is enabled |
-| `subtitles.srt` | Pure SRT subtitles with timestamps |
-| `subtitles.txt` | Plain text subtitle-style transcript |
-| `summary.md` | Agent-written meeting summary |
-| `report.md` | Optional formal report |
+| `subtitles.srt` | Pure SRT subtitles with timestamps                                  |
+| `subtitles.txt` | Plain text subtitle-style transcript                                |
+| `summary.md`    | Agent-written meeting summary                                       |
+| `report.md`     | Optional formal report                                              |
 
 Translated variants use `-<suffix>`:
 
@@ -355,13 +356,13 @@ subtitles-en.srt
 
 This repository includes a portable `SKILL.md`, so the same folder can be copied into multiple agent ecosystems.
 
-| Agent | User-level path | Project-level path |
-|---|---|---|
-| Claude Code | `~/.claude/skills/meeting-auto-summary` | `.claude/skills/meeting-auto-summary` |
-| Codex | `$CODEX_HOME/skills/meeting-auto-summary` or `~/.codex/skills/meeting-auto-summary` | `.agents/skills/meeting-auto-summary` |
-| OpenCode | `~/.config/opencode/skill/meeting-auto-summary` | `.opencode/skill/meeting-auto-summary` |
-| OpenClaw | `~/.openclaw/skills/meeting-auto-summary` | `.openclaw/skills/meeting-auto-summary` |
-| Hermes | `~/.hermes/skills/meeting-auto-summary` | `.hermes/skills/meeting-auto-summary` or external skill dir |
+| Agent       | User-level path                                                                     | Project-level path                                          |
+| ----------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Claude Code | `~/.claude/skills/meeting-auto-summary`                                             | `.claude/skills/meeting-auto-summary`                       |
+| Codex       | `$CODEX_HOME/skills/meeting-auto-summary` or `~/.codex/skills/meeting-auto-summary` | `.agents/skills/meeting-auto-summary`                       |
+| OpenCode    | `~/.config/opencode/skill/meeting-auto-summary`                                     | `.opencode/skill/meeting-auto-summary`                      |
+| OpenClaw    | `~/.openclaw/skills/meeting-auto-summary`                                           | `.openclaw/skills/meeting-auto-summary`                     |
+| Hermes      | `~/.hermes/skills/meeting-auto-summary`                                             | `.hermes/skills/meeting-auto-summary` or external skill dir |
 
 ---
 
