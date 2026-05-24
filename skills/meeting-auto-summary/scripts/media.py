@@ -22,13 +22,7 @@ class PreparedMedia:
 def prepare_media(input_path: Path, output_dir: Path | None = None) -> PreparedMedia:
     suffix = input_path.suffix.lower()
     if suffix in AUDIO_EXTENSIONS:
-        if output_dir is not None:
-            output_dir.mkdir(parents=True, exist_ok=True)
-            audio_path = output_dir / "audio.wav"
-            if input_path.resolve() != audio_path.resolve():
-                shutil.copy2(input_path, audio_path)
-            return PreparedMedia(audio_path=audio_path)
-        return PreparedMedia(audio_path=input_path)
+        return _convert_audio(input_path, output_dir)
     if suffix in VIDEO_EXTENSIONS:
         return _extract_audio(input_path, output_dir)
 
@@ -36,6 +30,12 @@ def prepare_media(input_path: Path, output_dir: Path | None = None) -> PreparedM
     raise ValueError(
         f"Unsupported input file type '{suffix}'. Supported extensions: {', '.join(supported)}"
     )
+
+
+def _convert_audio(input_path: Path, output_dir: Path | None = None) -> PreparedMedia:
+    if input_path.suffix.lower() == ".wav" and output_dir is None:
+        return PreparedMedia(audio_path=input_path)
+    return _extract_audio(input_path, output_dir)
 
 
 def _extract_audio(input_path: Path, output_dir: Path | None = None) -> PreparedMedia:

@@ -62,6 +62,19 @@ Core workflow:
 From this repository root:
 
 ```bash
+# Start the local web console
+npm start
+```
+
+Open:
+
+```text
+http://localhost:5177
+```
+
+The console opens as a local media library. Use the top-bar Manage Folders panel to add local directories; the console recursively scans media in subdirectories and can browse by directory/all media and folder/list view. After selecting a media file, the workbench shows an adaptive player above a vertical subtitle timeline on the left, and report/context/speaker/artifact tools on the right. Dragging the media timeline follows the active subtitle, and clicking an SRT subtitle seeks the player to that timestamp.
+
+```bash
 # Check the runner
 SKILL_DIR="skills/meeting-auto-summary"
 "$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/run.py" --help
@@ -76,6 +89,23 @@ SKILL_DIR="skills/meeting-auto-summary"
 ```
 
 Then ask your coding agent to use `$meeting-auto-summary` to create `summary.md` and optional translated files from the generated transcript.
+
+### Web Console Notes
+
+- Generated files stay in the same directory as the selected media.
+- The page also reads existing skill outputs from `tmp/<media-stem>/` so older generated files can be managed.
+- Manage Folders supports a native folder picker, manual path entry, current scan-root listing, and path removal.
+- The media library recursively scans subdirectories; the default scan depth is 12 and can be adjusted in Settings.
+- The folder browser hides generated files so media selection remains clean.
+- The Files tab shows generated files for the selected media directory, with text preview and direct download actions.
+- Markdown reports render tables, code blocks, Mermaid diagrams, and MathJax formulas.
+- The Speakers tab can rename `Speaker 1`, `Speaker 2`, and similar labels to real names, then sync those names across transcript, subtitle, summary, report, and translated text outputs.
+- The top-bar `A-` / `A+` controls adjust global text size for subtitles and reports.
+- Settings currently support Chinese and English; extend `config/languages.json` to add more languages later.
+- AI summarization and translation provider integrations are reserved under `server/providers/`; the current console creates copy-ready context instead of calling an external model directly.
+- Project-level skill installation can be run from the console or with `npm run install:project-skills`.
+- Environment checks and venv deployment can be run from the console or with `npm run check` / `npm run deploy:env`.
+- `.m4a` / `.aac` and other compressed audio inputs are converted with ffmpeg into real 16 kHz mono PCM WAV before ASR, avoiding fake `audio.wav` files that still contain compressed audio bytes.
 
 ---
 

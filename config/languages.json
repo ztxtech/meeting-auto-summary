@@ -1,0 +1,16 @@
+[
+  {
+    "code": "zh",
+    "label": "中文",
+    "asr": true,
+    "summary": true,
+    "translation": true
+  },
+  {
+    "code": "en",
+    "label": "English",
+    "asr": true,
+    "summary": true,
+    "translation": true
+  }
+]

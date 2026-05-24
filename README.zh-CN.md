@@ -55,6 +55,19 @@ report-<lang>.md
 在仓库根目录运行：
 
 ```bash
+# 启动本地 Web 控制台
+npm start
+```
+
+打开：
+
+```text
+http://localhost:5177
+```
+
+控制台进入后就是本地媒体库视图。通过顶部“管理文件夹”添加本地目录后，控制台会递归扫描子目录里的音视频文件，并可以用“按目录 / 所有媒体”和“文件夹 / 列表”两种方式浏览。进入媒体工作台后，左侧上方是自适应播放器，左侧下方是垂直时间轴字幕；视频拖动会自动定位字幕，点击字幕也会跳转到对应时间。右侧集中展示 `summary.md` / `report.md`、AI 上下文、说话人名称编辑、生成文件、转写和设置。
+
+```bash
 # 检查 runner
 SKILL_DIR="skills/meeting-auto-summary"
 "$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/run.py" --help
@@ -69,6 +82,23 @@ SKILL_DIR="skills/meeting-auto-summary"
 ```
 
 然后让你的编码 Agent 使用 `$meeting-auto-summary`，根据生成的转写稿创建 `summary.md` 和可选翻译文件。
+
+### Web 控制台说明
+
+- 生成文件始终保存在所选媒体的同一目录。
+- 页面也会读取仓库 `tmp/<媒体文件名>/` 下已有的 skill 输出，方便继续管理旧产物。
+- “管理文件夹”支持系统原生目录选择器、手动添加路径、查看和移除已添加扫描目录。
+- 媒体库会递归扫描子目录；默认扫描深度为 12，可在设置里调整。
+- 文件夹浏览区会隐藏 `transcript.md`、`subtitles.srt`、`summary.md` 等生成文件。
+- “文件”选项卡会显示当前媒体目录下的生成文件，并可直接预览文本内容或下载文件。
+- Markdown 报告支持表格、代码块、Mermaid 图和 MathJax 公式渲染。
+- “说话人”选项卡可以把 `Speaker 1`、`Speaker 2` 等改成真实姓名，并同步写回 `transcript.md`、`subtitles.srt`、`subtitles.txt`、`summary.md`、`report.md` 及翻译版本。
+- 顶部 `A-` / `A+` 可以调整字幕和报告的全局文字大小。
+- 设置当前只支持中文和英文；后续新增语言请扩展 `config/languages.json`。
+- AI 总结和翻译 provider 预留在 `server/providers/`；当前版本先生成可复制到对话框的上下文，不直接调用外部模型。
+- 项目级 skill 安装可以在控制台执行，也可以运行 `npm run install:project-skills`。
+- 环境检查和 venv 部署可以在控制台执行，也可以运行 `npm run check` / `npm run deploy:env`。
+- 对于 `.m4a` / `.aac` 等音频输入，转写前会先用 ffmpeg 转成真正的 16 kHz 单声道 PCM WAV，避免把压缩音频直接伪装成 `audio.wav`。
 
 ---
 

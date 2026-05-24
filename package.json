@@ -1,0 +1,16 @@
+{
+  "name": "meeting-auto-summary-console",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server/index.js",
+    "start": "node server/index.js",
+    "install:project-skills": "node server/install-project-skills.js",
+    "deploy:env": "node server/deploy-env.js",
+    "check": "node server/check-env.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

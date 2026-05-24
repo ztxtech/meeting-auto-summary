@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Meeting Auto Summary</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>Meeting Auto Summary</h1>
+          <p id="activePath">本地会议媒体工作台</p>
+        </div>
+        <div class="top-actions">
+          <button id="backToLibraryBtn" class="secondary hidden" type="button">文件夹</button>
+          <button id="openFoldersBtn" class="secondary" type="button">管理文件夹</button>
+          <button id="refreshBtn" class="icon-button" title="刷新扫描" type="button">↻</button>
+          <button id="openSettingsBtn" class="secondary" type="button">设置</button>
+          <button id="decreaseFontBtn" class="text-size-button" type="button" title="缩小文字">A−</button>
+          <button id="increaseFontBtn" class="text-size-button" type="button" title="放大文字">A+</button>
+          <button id="copyMediaPathBtn" class="secondary" type="button">复制路径</button>
+          <button id="copyContextBtn" class="primary" type="button">复制 AI 上下文</button>
+        </div>
+      </header>
+
+      <main id="libraryView" class="library-view">
+        <section class="library-head">
+          <div>
+            <h2>文件夹</h2>
+            <p>从顶部“管理文件夹”添加或移除本地目录，然后像 Finder 一样点开音视频文件。</p>
+          </div>
+        </section>
+
+        <section class="folder-stage">
+          <div class="section-head">
+            <h3>媒体库</h3>
+            <div class="library-tools">
+              <div class="segmented-control" aria-label="显示模式">
+                <button id="folderViewBtn" class="segment active" type="button">文件夹</button>
+                <button id="listViewBtn" class="segment" type="button">列表</button>
+              </div>
+              <div class="segmented-control" aria-label="分组模式">
+                <button id="byDirectoryBtn" class="segment active" type="button">按目录</button>
+                <button id="allMediaBtn" class="segment" type="button">所有媒体</button>
+              </div>
+              <span id="scanStatus"></span>
+            </div>
+          </div>
+          <div id="folderTree" class="finder-grid"></div>
+        </section>
+      </main>
+
+      <main id="workbenchView" class="workbench-view hidden">
+        <section class="media-column">
+          <div class="player-panel">
+            <div id="videoFrame" class="video-frame">
+              <video id="videoPlayer" controls playsinline></video>
+            </div>
+            <div id="audioFrame" class="audio-frame">
+              <div class="audio-art">♪</div>
+              <div class="audio-copy">
+                <strong id="audioTitle">Audio</strong>
+                <span id="audioMeta">本地音频</span>
+              </div>
+              <audio id="audioPlayer" controls></audio>
+            </div>
+            <div id="emptyPlayer" class="empty-state">选择一个媒体文件</div>
+          </div>
+
+          <section class="timeline-panel">
+            <div class="section-head">
+              <h3>时间轴字幕</h3>
+              <div class="inline-actions">
+                <button id="loadArtifactsBtn" class="secondary" type="button">刷新</button>
+                <button id="copySubtitlePathBtn" class="secondary" type="button">复制字幕路径</button>
+              </div>
+            </div>
+            <div id="subtitleList" class="timeline-list"></div>
+          </section>
+        </section>
+
+        <div id="resizeHandle" class="resize-handle" role="separator" aria-orientation="vertical" title="拖动调整左右面板"></div>
+
+        <aside class="output-column">
+          <div class="tabs" role="tablist">
+            <button class="tab active" data-tab="report" type="button">报告</button>
+            <button class="tab" data-tab="context" type="button">上下文</button>
+            <button class="tab" data-tab="speakers" type="button">说话人</button>
+            <button class="tab" data-tab="files" type="button">文件</button>
+            <button class="tab" data-tab="run" type="button">转写</button>
+          </div>
+
+          <section id="tab-report" class="tab-panel active">
+            <div class="section-head">
+              <h3 id="reportTitle">输出报告</h3>
+              <button id="copyReportPathBtn" class="secondary" type="button">复制路径</button>
+            </div>
+            <div id="reportViewer" class="reader markdown-body"></div>
+          </section>
+
+          <section id="tab-context" class="tab-panel">
+            <div class="section-head">
+              <h3>AI 上下文</h3>
+              <button id="copyContextPanelBtn" class="primary" type="button">复制</button>
+            </div>
+            <pre id="contextViewer" class="reader"></pre>
+          </section>
+
+          <section id="tab-speakers" class="tab-panel">
+            <div class="section-head">
+              <h3>说话人名称</h3>
+              <button id="saveSpeakersBtn" class="primary" type="button">同步到文件</button>
+            </div>
+            <div id="speakerEditor" class="speaker-editor"></div>
+          </section>
+
+          <section id="tab-files" class="tab-panel">
+            <div id="artifactList" class="artifact-list"></div>
+            <div class="artifact-viewer-head">
+              <strong id="artifactTitle">未选择文件</strong>
+              <button id="copyArtifactPathBtn" class="secondary" type="button">复制文件路径</button>
+            </div>
+            <div id="artifactViewer" class="reader compact-reader markdown-body"></div>
+          </section>
+
+          <section id="tab-run" class="tab-panel">
+            <div class="field">
+              <label for="speakerMode">说话人区分</label>
+              <select id="speakerMode">
+                <option value="diarize">区分说话人</option>
+                <option value="none">不区分说话人</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="recognitionLanguage">识别语言</label>
+              <select id="recognitionLanguage">
+                <option value="auto">自动</option>
+                <option value="zh">中文</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+            <button id="transcribeBtn" class="primary wide" type="button">开始转写</button>
+            <pre id="jobLog" class="log-output"></pre>
+          </section>
+
+        </aside>
+      </main>
+    </div>
+
+    <div id="foldersOverlay" class="settings-overlay hidden">
+      <section class="settings-sheet folder-sheet" role="dialog" aria-modal="true" aria-labelledby="foldersTitle">
+        <div class="settings-head">
+          <div>
+            <h2 id="foldersTitle">管理文件夹</h2>
+            <p>这些目录会被扫描为媒体库来源，可以随时添加或移除。</p>
+          </div>
+          <button id="closeFoldersBtn" class="icon-button" type="button">×</button>
+        </div>
+        <form id="addFolderForm" class="path-form">
+          <input id="folderInput" type="text" placeholder="/Users/you/Meetings" autocomplete="off">
+          <button id="pickFolderBtn" class="secondary" type="button">选择文件夹</button>
+          <button type="submit">添加路径</button>
+        </form>
+        <div id="folderPathList" class="folder-path-list"></div>
+      </section>
+    </div>
+
+    <div id="settingsOverlay" class="settings-overlay hidden">
+      <section class="settings-sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="settings-head">
+          <div>
+            <h2 id="settingsTitle">设置</h2>
+            <p>模型、语言、环境和项目内 Skill 部署。</p>
+          </div>
+          <button id="closeSettingsBtn" class="icon-button" type="button">×</button>
+        </div>
+        <div class="settings-grid">
+          <div class="field">
+            <label for="asrModel">ASR 模型目录</label>
+            <select id="asrModel"></select>
+          </div>
+          <div class="field">
+            <label for="outputLanguage">总结语言</label>
+            <select id="outputLanguage">
+              <option value="zh">中文</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="translationTarget">翻译目标</label>
+            <select id="translationTarget">
+              <option value="en">English</option>
+              <option value="zh">中文</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="scanDepth">扫描深度</label>
+            <input id="scanDepth" type="number" min="1" max="32" step="1">
+          </div>
+        </div>
+        <div class="settings-actions">
+          <button id="saveSettingsBtn" class="primary" type="button">保存设置</button>
+          <button id="checkEnvBtn" class="secondary" type="button">检查环境</button>
+          <button id="deployEnvBtn" class="secondary" type="button">部署 Python 环境</button>
+          <button id="installSkillsBtn" class="secondary" type="button">安装项目 Skills</button>
+          <button id="downloadAsrBtn" class="secondary" type="button">下载 ASR 模型</button>
+          <button id="downloadDiarBtn" class="secondary" type="button">下载说话人模型</button>
+        </div>
+        <div id="envResults" class="env-results"></div>
+      </section>
+    </div>
+
+    <div id="toast" class="toast" role="status"></div>
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+        svg: { fontCache: 'global' }
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.6.0/dist/mermaid.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

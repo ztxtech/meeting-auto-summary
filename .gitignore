@@ -13,6 +13,10 @@ skills/*/.venv/
 venv/
 env/
 
+# Node
+node_modules/
+npm-debug.log*
+
 # macOS / editor files
 .DS_Store
 *.swp
@@ -24,6 +28,7 @@ env/
 tmp/
 outputs/
 *.log
+.meeting-auto-summary/
 
 # Local media examples and exports
 example
