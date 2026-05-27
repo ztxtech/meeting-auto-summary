@@ -77,9 +77,14 @@ SKILL_DIR="skills/meeting-auto-summary"
   --model skills/meeting-auto-summary/model/Qwen3-ASR-0.6B-6bit \
   --speaker-mode diarize \
   --diarization-model skills/meeting-auto-summary/model/diar_sortformer_4spk-v1-fp16 \
+  --speaker-global-clustering \
   --output-dir tmp/iShot_2026-05-22_14.54.02 \
   --title iShot_2026-05-22_14.54.02
 ```
+
+启用 `--speaker-mode diarize` 时默认会执行全局说话人聚类：先用 Sortformer 流式切出说话时间段，再复用 Sortformer encoder 表征对整段音频的片段做全局聚类并重新编号，降低长视频里跨窗口 `Speaker 1` / `Speaker 2` 漂移的概率。可用 `--no-speaker-global-clustering` 关闭，或用 `--speaker-clustering-threshold` 调整合并阈值。
+
+如果已知参会人数，可以加 `--speaker-count <人数>` 进行约束聚类。例如答辩场景里 1 名学生加 5 名老师可以传 `--speaker-count 6`。当前内置 Sortformer 是 4 speaker 模型，已知人数约束可以改善跨时段重编号，但不能保证每个真实人物都被稳定拆成独立标签。
 
 然后让你的编码 Agent 使用 `$meeting-auto-summary`，根据生成的转写稿创建 `summary.md` 和可选翻译文件。
 
@@ -294,7 +299,7 @@ rsync -a --delete skills/meeting-auto-summary/ .hermes/skills/meeting-auto-summa
 | `mlx-audio` | ASR 和人声区分后端 |
 | `ffmpeg` | 从视频抽取 16 kHz 单声道音频 |
 | `Qwen3-ASR-0.6B-6bit` | 本地语音识别模型 |
-| `diar_sortformer_4spk-v1-fp16` | 本地 MLX 人声区分模型 |
+| `diar_sortformer_4spk-v1-fp16` | 本地 MLX 人声区分模型和全局说话人聚类表征 |
 
 检查：
 
@@ -328,7 +333,7 @@ brew install ffmpeg
 | 文件 | 说明 |
 |---|---|
 | `audio.wav` | 抽取后的 16 kHz 单声道音频 |
-| `transcript.md` | Markdown 转写稿，启用人声区分时带 speaker 标签 |
+| `transcript.md` | Markdown 转写稿，启用人声区分时带全局重编号后的 speaker 标签 |
 | `subtitles.srt` | 纯 SRT 字幕，带时间轴 |
 | `subtitles.txt` | 纯文本字幕式转写 |
 | `summary.md` | Agent 生成的会议总结 |

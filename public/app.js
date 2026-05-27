@@ -66,6 +66,7 @@ const els = {
   artifactViewer: document.querySelector('#artifactViewer'),
   copyArtifactPathBtn: document.querySelector('#copyArtifactPathBtn'),
   speakerMode: document.querySelector('#speakerMode'),
+  speakerCount: document.querySelector('#speakerCount'),
   recognitionLanguage: document.querySelector('#recognitionLanguage'),
   transcribeBtn: document.querySelector('#transcribeBtn'),
   jobStatus: document.querySelector('#jobStatus'),
@@ -558,6 +559,7 @@ async function startTranscription() {
       body: {
         mediaPath: state.selectedMedia.path,
         speakerMode: els.speakerMode.value,
+        speakerCount: normalizedSpeakerCount(),
         recognitionLanguage: els.recognitionLanguage.value
       }
     });
@@ -567,6 +569,12 @@ async function startTranscription() {
     renderJobStatus(null);
     els.jobLog.textContent += `启动失败：${error.message}\n`;
   }
+}
+
+function normalizedSpeakerCount() {
+  const value = Number(els.speakerCount.value || 0);
+  if (!Number.isInteger(value) || value <= 0) return null;
+  return value;
 }
 
 async function restoreJobForSelectedMedia() {

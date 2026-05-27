@@ -85,9 +85,14 @@ SKILL_DIR="skills/meeting-auto-summary"
   --model skills/meeting-auto-summary/model/Qwen3-ASR-0.6B-6bit \
   --speaker-mode diarize \
   --diarization-model skills/meeting-auto-summary/model/diar_sortformer_4spk-v1-fp16 \
+  --speaker-global-clustering \
   --output-dir tmp/iShot_2026-05-22_14.54.02 \
   --title iShot_2026-05-22_14.54.02
 ```
+
+With `--speaker-mode diarize`, global speaker clustering is enabled by default: Sortformer first produces streaming diarization segments, then the pipeline reuses Sortformer encoder representations to recluster segments across the full audio and relabel speakers. Use `--no-speaker-global-clustering` to disable it, or `--speaker-clustering-threshold` to tune the merge threshold.
+
+When the expected participant count is known, pass `--speaker-count <count>` to constrain global clustering. For example, a defense with one student and five examiners can use `--speaker-count 6`. The bundled Sortformer model is a 4-speaker diarization model, so this can improve cross-period relabeling but cannot guarantee one stable label per real person.
 
 Then ask your coding agent to use `$meeting-auto-summary` to create `summary.md` and optional translated files from the generated transcript.
 
@@ -302,7 +307,7 @@ Required:
 | `mlx-audio`                                      | ASR and diarization backend           |
 | `ffmpeg`                                         | Extracts 16 kHz mono audio from video |
 | `Qwen3-ASR-0.6B-6bit`                            | Local speech recognition model        |
-| `diar_sortformer_4spk-v1-fp16`                   | Local MLX speaker diarization model   |
+| `diar_sortformer_4spk-v1-fp16`                   | Local MLX diarization and clustering representation model |
 
 Check:
 
@@ -336,7 +341,7 @@ brew install ffmpeg
 | File            | Description                                                         |
 | --------------- | ------------------------------------------------------------------- |
 | `audio.wav`     | Extracted 16 kHz mono audio                                         |
-| `transcript.md` | Markdown transcript with speaker labels when diarization is enabled |
+| `transcript.md` | Markdown transcript with globally relabeled speaker labels when diarization is enabled |
 | `subtitles.srt` | Pure SRT subtitles with timestamps                                  |
 | `subtitles.txt` | Plain text subtitle-style transcript                                |
 | `summary.md`    | Agent-written meeting summary                                       |

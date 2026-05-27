@@ -384,7 +384,14 @@ async function startTranscription(body) {
 
   const language = body.recognitionLanguage || settings.recognitionLanguage;
   if (language && language !== 'auto') args.push('--language', language);
-  if (speakerMode === 'diarize') args.push('--diarization-model', diarizationModelPath());
+  if (speakerMode === 'diarize') {
+    args.push(
+      '--diarization-model',
+      diarizationModelPath(),
+      '--speaker-global-clustering'
+    );
+    if (body.speakerCount) args.push('--speaker-count', String(body.speakerCount));
+  }
 
   const id = randomUUID();
   const job = {

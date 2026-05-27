@@ -96,6 +96,30 @@ def build_parser() -> argparse.ArgumentParser:
         default=30.0,
         help="Diarization chunk duration in seconds",
     )
+    parser.add_argument(
+        "--speaker-global-clustering",
+        dest="speaker_global_clustering",
+        action="store_true",
+        default=True,
+        help="Globally recluster diarization speaker labels across the full audio",
+    )
+    parser.add_argument(
+        "--no-speaker-global-clustering",
+        dest="speaker_global_clustering",
+        action="store_false",
+        help="Disable global speaker relabeling after diarization",
+    )
+    parser.add_argument(
+        "--speaker-clustering-threshold",
+        type=float,
+        default=0.9,
+        help="Cosine threshold for global speaker clustering",
+    )
+    parser.add_argument(
+        "--speaker-count",
+        type=int,
+        help="Expected global speaker count for constrained clustering",
+    )
     parser.add_argument("--title", help="Markdown title")
     parser.add_argument(
         "--keep-temp", action="store_true", help="Keep temporary extracted audio files"
@@ -153,6 +177,9 @@ def run(args: argparse.Namespace) -> int:
                 min_duration=args.diarization_min_duration,
                 merge_gap=args.diarization_merge_gap,
                 chunk_duration=args.diarization_chunk_duration,
+                global_clustering=args.speaker_global_clustering,
+                clustering_threshold=args.speaker_clustering_threshold,
+                speaker_count=args.speaker_count,
             )
         else:
             transcript = clear_speakers(transcript)
