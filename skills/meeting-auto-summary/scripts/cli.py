@@ -141,6 +141,7 @@ def run(args: argparse.Namespace) -> int:
             min_chunk_duration=args.min_chunk_duration,
             max_tokens=args.max_tokens,
             prefill_step_size=args.prefill_step_size,
+            progress=_asr_progress,
         )
         if args.speaker_mode == "diarize":
             _progress("Running speaker diarization")
@@ -174,6 +175,22 @@ def run(args: argparse.Namespace) -> int:
 
 def _progress(message: str) -> None:
     print(f"PROGRESS: {message}", flush=True)
+
+
+def _asr_progress(index: int, total: int, start: float, end: float) -> None:
+    _progress(
+        f"Running ASR chunk {index}/{total} "
+        f"({format_duration(start)}-{format_duration(end)})"
+    )
+
+
+def format_duration(seconds: float) -> str:
+    rounded = max(0, int(seconds))
+    minutes, secs = divmod(rounded, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours:02}:{minutes:02}:{secs:02}"
+    return f"{minutes:02}:{secs:02}"
 
 
 def _resolve_output_path(

@@ -680,6 +680,8 @@ function jobStageText(job) {
   const text = formatJobLogs(job);
   if (text.includes('Writing output files')) return '写入字幕和转写稿';
   if (text.includes('Running speaker diarization')) return '区分说话人';
+  const chunk = latestAsrChunk(text);
+  if (chunk) return `语音识别中 ${chunk.index}/${chunk.total}（${chunk.range}）`;
   if (text.includes('Running ASR')) return '语音识别中';
   if (text.includes('Preparing audio')) return '准备音频';
   if (text.includes('Loading ASR model')) return '加载识别模型';
@@ -694,11 +696,20 @@ function jobProgressValue(job) {
   const text = formatJobLogs(job);
   if (text.includes('Writing output files')) return 92;
   if (text.includes('Running speaker diarization')) return 78;
+  const chunk = latestAsrChunk(text);
+  if (chunk) return Math.max(20, Math.min(76, 20 + Math.round((chunk.index / chunk.total) * 56)));
   if (text.includes('Running ASR')) return 46;
   if (text.includes('Preparing audio')) return 18;
   if (text.includes('Loading ASR model')) return 8;
   if (text.includes('Downloading ')) return 35;
   return 6;
+}
+
+function latestAsrChunk(text) {
+  const matches = Array.from(text.matchAll(/Running ASR chunk (\d+)\/(\d+) \(([^)]+)\)/g));
+  const match = matches.at(-1);
+  if (!match) return null;
+  return { index: Number(match[1]), total: Number(match[2]), range: match[3] };
 }
 
 function elapsedTime(startedAt, endedAt) {
