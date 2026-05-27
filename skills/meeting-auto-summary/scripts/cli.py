@@ -123,13 +123,16 @@ def run(args: argparse.Namespace) -> int:
     if not input_path.exists() or not input_path.is_file():
         raise FileNotFoundError(f"Input file does not exist: {input_path}")
 
+    _progress("Loading ASR model")
     model_path = resolve_model_path(args.model)
     diarization_model_path = _resolve_diarization_model_path(args)
     output_path = _resolve_output_path(input_path, args.output, args.format, args.output_dir)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    _progress("Preparing audio")
     prepared = prepare_media(input_path, output_path.parent if args.output_dir else None)
     try:
+        _progress("Running ASR")
         transcript = transcribe_audio(
             prepared.audio_path,
             model_path,
@@ -140,6 +143,7 @@ def run(args: argparse.Namespace) -> int:
             prefill_step_size=args.prefill_step_size,
         )
         if args.speaker_mode == "diarize":
+            _progress("Running speaker diarization")
             transcript = diarize_transcript(
                 transcript,
                 prepared.audio_path,
@@ -151,6 +155,7 @@ def run(args: argparse.Namespace) -> int:
             )
         else:
             transcript = clear_speakers(transcript)
+        _progress("Writing output files")
         if args.output_dir:
             _write_output_dir(transcript, output_path.parent, args.title or input_path.stem)
         else:
@@ -165,6 +170,10 @@ def run(args: argparse.Namespace) -> int:
     else:
         print(f"Wrote {output_path}")
     return 0
+
+
+def _progress(message: str) -> None:
+    print(f"PROGRESS: {message}", flush=True)
 
 
 def _resolve_output_path(

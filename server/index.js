@@ -169,6 +169,17 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/jobs') {
+    const mediaPath = url.searchParams.get('mediaPath')
+      ? path.resolve(expandHome(url.searchParams.get('mediaPath')))
+      : null;
+    const jobsList = Array.from(jobs.values())
+      .filter((job) => !mediaPath || job.mediaPath === mediaPath)
+      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+    sendJson(res, 200, { jobs: jobsList.map(compactJob), job: jobsList[0] ? compactJob(jobsList[0]) : null });
+    return;
+  }
+
   if (req.method === 'GET' && url.pathname.startsWith('/api/jobs/')) {
     const id = decodeURIComponent(url.pathname.split('/').at(-1));
     const job = jobs.get(id);

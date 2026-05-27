@@ -13,6 +13,7 @@ const state = {
   textScale: Number(localStorage.getItem('textScale') || 1),
   activeSubtitleIndex: -1,
   lastAutoScrollAt: 0,
+  activeJobId: null,
   jobTimer: null
 };
 
@@ -67,6 +68,10 @@ const els = {
   speakerMode: document.querySelector('#speakerMode'),
   recognitionLanguage: document.querySelector('#recognitionLanguage'),
   transcribeBtn: document.querySelector('#transcribeBtn'),
+  jobStatus: document.querySelector('#jobStatus'),
+  jobStage: document.querySelector('#jobStage'),
+  jobDuration: document.querySelector('#jobDuration'),
+  jobProgressBar: document.querySelector('#jobProgressBar'),
   jobLog: document.querySelector('#jobLog'),
   asrModel: document.querySelector('#asrModel'),
   outputLanguage: document.querySelector('#outputLanguage'),
@@ -348,6 +353,7 @@ async function selectMedia(file) {
   await loadArtifacts();
   await loadSpeakers();
   await refreshContextPreview();
+  await restoreJobForSelectedMedia();
 }
 
 function renderPlayer(file) {
@@ -545,33 +551,167 @@ async function startTranscription() {
   }
   els.transcribeBtn.disabled = true;
   els.jobLog.textContent = '启动转写任务...\n';
-  const data = await api('/api/transcribe', {
-    method: 'POST',
-    body: {
-      mediaPath: state.selectedMedia.path,
-      speakerMode: els.speakerMode.value,
-      recognitionLanguage: els.recognitionLanguage.value
+  renderJobStatus({ status: 'running', startedAt: new Date().toISOString(), logs: [] });
+  try {
+    const data = await api('/api/transcribe', {
+      method: 'POST',
+      body: {
+        mediaPath: state.selectedMedia.path,
+        speakerMode: els.speakerMode.value,
+        recognitionLanguage: els.recognitionLanguage.value
+      }
+    });
+    trackJob(data.job);
+  } catch (error) {
+    els.transcribeBtn.disabled = false;
+    renderJobStatus(null);
+    els.jobLog.textContent += `启动失败：${error.message}\n`;
+  }
+}
+
+async function restoreJobForSelectedMedia() {
+  clearInterval(state.jobTimer);
+  state.activeJobId = null;
+  els.transcribeBtn.disabled = false;
+  if (!state.selectedMedia) {
+    renderJobStatus(null);
+    els.jobLog.textContent = '';
+    return;
+  }
+
+  const storageKey = jobStorageKey(state.selectedMedia.path);
+  const storedJobId = localStorage.getItem(storageKey);
+  let job = null;
+  if (storedJobId) {
+    job = await fetchJob(storedJobId);
+    if (!job || job.mediaPath !== state.selectedMedia.path) {
+      localStorage.removeItem(storageKey);
+      job = null;
     }
-  });
-  pollJob(data.job.id);
+  }
+  if (!job) {
+    const data = await api(`/api/jobs?mediaPath=${encodeURIComponent(state.selectedMedia.path)}`);
+    job = data.job || null;
+  }
+
+  if (!job) {
+    renderJobStatus(null);
+    els.jobLog.textContent = '';
+    return;
+  }
+  trackJob(job);
+}
+
+function trackJob(job) {
+  if (!job?.id) return;
+  state.activeJobId = job.id;
+  if (job.mediaPath) localStorage.setItem(jobStorageKey(job.mediaPath), job.id);
+  renderJob(job);
+  if (job.status === 'running') {
+    pollJob(job.id);
+  } else {
+    clearInterval(state.jobTimer);
+  }
 }
 
 async function pollJob(id) {
   clearInterval(state.jobTimer);
-  state.jobTimer = setInterval(async () => {
-    const data = await api(`/api/jobs/${encodeURIComponent(id)}`);
-    const job = data.job;
-    els.jobLog.textContent = job.logs.map((entry) => `[${entry.stream}] ${entry.text}`).join('');
-    els.jobLog.scrollTop = els.jobLog.scrollHeight;
+  const refresh = async () => {
+    const job = await fetchJob(id);
+    if (!job) {
+      clearInterval(state.jobTimer);
+      if (state.activeJobId === id) {
+        state.activeJobId = null;
+        els.transcribeBtn.disabled = false;
+      }
+      return;
+    }
+    renderJob(job);
     if (job.status !== 'running') {
       clearInterval(state.jobTimer);
-      els.transcribeBtn.disabled = false;
-      toast(job.status === 'completed' ? '转写完成' : '转写失败');
-      await loadArtifacts();
-      await loadSpeakers();
-      await refreshContextPreview();
+      toast(job.status === 'completed' ? '任务完成' : '任务失败');
+      if (job.mediaPath && state.selectedMedia?.path === job.mediaPath) {
+        await loadArtifacts();
+        await loadSpeakers();
+        await refreshContextPreview();
+      }
     }
+  };
+  await refresh();
+  state.jobTimer = setInterval(async () => {
+    await refresh();
   }, 1200);
+}
+
+async function fetchJob(id) {
+  try {
+    const data = await api(`/api/jobs/${encodeURIComponent(id)}`, { quiet: true });
+    return data.job;
+  } catch {
+    return null;
+  }
+}
+
+function renderJob(job) {
+  renderJobStatus(job);
+  els.transcribeBtn.disabled = job?.status === 'running';
+  els.jobLog.textContent = formatJobLogs(job);
+  els.jobLog.scrollTop = els.jobLog.scrollHeight;
+}
+
+function renderJobStatus(job) {
+  const status = job?.status || 'idle';
+  els.jobStatus.className = `job-status ${status}`;
+  els.jobStage.textContent = jobStageText(job);
+  els.jobDuration.textContent = job ? elapsedTime(job.startedAt, job.endedAt) : '00:00';
+  els.jobProgressBar.style.width = `${jobProgressValue(job)}%`;
+}
+
+function formatJobLogs(job) {
+  if (!job) return '';
+  if (!job.logs?.length) return job.status === 'running' ? '任务已启动，等待输出...\n' : '';
+  return job.logs.map((entry) => `[${entry.stream}] ${entry.text}`).join('');
+}
+
+function jobStageText(job) {
+  if (!job) return '尚未开始';
+  if (job.status === 'completed') return '转写完成';
+  if (job.status === 'failed') return '转写失败';
+  const text = formatJobLogs(job);
+  if (text.includes('Writing output files')) return '写入字幕和转写稿';
+  if (text.includes('Running speaker diarization')) return '区分说话人';
+  if (text.includes('Running ASR')) return '语音识别中';
+  if (text.includes('Preparing audio')) return '准备音频';
+  if (text.includes('Loading ASR model')) return '加载识别模型';
+  if (text.includes('Downloading ')) return '下载模型中';
+  return '任务运行中';
+}
+
+function jobProgressValue(job) {
+  if (!job) return 0;
+  if (job.status === 'completed') return 100;
+  if (job.status === 'failed') return 100;
+  const text = formatJobLogs(job);
+  if (text.includes('Writing output files')) return 92;
+  if (text.includes('Running speaker diarization')) return 78;
+  if (text.includes('Running ASR')) return 46;
+  if (text.includes('Preparing audio')) return 18;
+  if (text.includes('Loading ASR model')) return 8;
+  if (text.includes('Downloading ')) return 35;
+  return 6;
+}
+
+function elapsedTime(startedAt, endedAt) {
+  const start = startedAt ? new Date(startedAt).getTime() : Date.now();
+  const end = endedAt ? new Date(endedAt).getTime() : Date.now();
+  const seconds = Math.max(0, Math.floor((end - start) / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function jobStorageKey(mediaPath) {
+  return `meetingAutoSummary.job.${mediaPath}`;
 }
 
 async function saveSettings() {
@@ -845,7 +985,7 @@ async function api(path, options = {}) {
   });
   const data = await response.json();
   if (!response.ok) {
-    toast(data.error || '请求失败');
+    if (!options.quiet) toast(data.error || '请求失败');
     throw new Error(data.error || 'Request failed');
   }
   return data;

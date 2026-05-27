@@ -805,10 +805,76 @@ body.resizing .resize-handle::after {
 
 .log-output {
   height: 280px;
-  margin-top: 12px;
+  margin-top: 10px;
   white-space: pre-wrap;
   background: rgba(10, 15, 25, 0.78);
   color: #edf4ff;
+}
+
+.job-status {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.46);
+  box-shadow: var(--inner-light), 0 12px 28px rgba(31, 41, 55, 0.08);
+}
+
+.job-status-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.job-status-head strong {
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.job-status-head span {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.job-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.10);
+}
+
+.job-progress span {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #007aff, #34c759);
+  transition: width 220ms ease;
+}
+
+.job-status.running .job-progress span {
+  background-image: linear-gradient(90deg, #007aff, #34c759, #007aff);
+  background-size: 180% 100%;
+  animation: job-progress-pulse 1.4s linear infinite;
+}
+
+.job-status.failed .job-progress span {
+  background: var(--warn);
+}
+
+.job-status.completed .job-progress span {
+  background: var(--ok);
+}
+
+@keyframes job-progress-pulse {
+  from { background-position: 0% 50%; }
+  to { background-position: 180% 50%; }
 }
 
 .plain-text {

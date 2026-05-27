@@ -142,6 +142,13 @@
               </select>
             </div>
             <button id="transcribeBtn" class="primary wide" type="button">开始转写</button>
+            <div id="jobStatus" class="job-status idle" aria-live="polite">
+              <div class="job-status-head">
+                <strong id="jobStage">尚未开始</strong>
+                <span id="jobDuration">00:00</span>
+              </div>
+              <div class="job-progress" aria-hidden="true"><span id="jobProgressBar"></span></div>
+            </div>
             <pre id="jobLog" class="log-output"></pre>
           </section>
 
