@@ -256,10 +256,10 @@ You need:
 If the user does not provide either value, ask before running. If the user provides only the input file, recommend this output directory but ask the user to confirm or replace it:
 
 ```text
-<project-root>/tmp/<input-file-stem>/
+<input-media-parent>/<input-file-stem>/
 ```
 
-If the user provides an output directory, keep generated files directly under that directory. Do not scatter outputs across multiple folders.
+If the user provides an output directory, keep generated files directly under that directory. Do not scatter outputs across multiple folders. Do not write generated files directly beside the media file unless the user explicitly asks for that legacy layout; using a media-stem output folder prevents collisions when one folder contains multiple recordings.
 
 ## Transcription
 

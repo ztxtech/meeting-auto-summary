@@ -9,6 +9,7 @@ import { checkEnvironment } from './check-env.js';
 import { deployEnvironment } from './deploy-env.js';
 import { installProjectSkills } from './install-project-skills.js';
 import {
+  artifactOutputDir,
   campplusModelPath,
   diarizationModelPath,
   exists,
@@ -310,6 +311,7 @@ async function scanFolder(folderPath, depth, currentDepth = 0) {
     if (GENERATED_FILENAMES.includes(entry.name) || entry.name === '.meeting-speakers.json') continue;
     const entryPath = path.join(folderPath, entry.name);
     if (entry.isDirectory()) {
+      if (await isArtifactOnlyDirectory(entryPath)) continue;
       if (currentDepth < depth) {
         const child = await scanFolder(entryPath, depth, currentDepth + 1);
         folders.push(child);
@@ -349,7 +351,7 @@ async function listArtifacts(mediaPath) {
       name: path.basename(candidate),
       path: candidate,
         directory: dir,
-        location: dir === path.dirname(mediaPath) ? 'media' : 'tmp',
+        location: artifactLocation(mediaPath, dir),
       size: fileStat.size,
       modifiedAt: fileStat.mtime.toISOString(),
       type: artifactType(candidate)
@@ -360,6 +362,25 @@ async function listArtifacts(mediaPath) {
     if (a.location !== b.location) return a.location.localeCompare(b.location);
     return a.name.localeCompare(b.name);
   });
+}
+
+async function isArtifactOnlyDirectory(dir) {
+  let entries = [];
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return false;
+  }
+  const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
+  const directories = entries.filter((entry) => entry.isDirectory());
+  if (directories.length) return false;
+  return files.some(isGeneratedArtifact) && files.every((name) => isGeneratedArtifact(name) || name === '.meeting-speakers.json');
+}
+
+function artifactLocation(mediaPath, dir) {
+  if (dir === artifactOutputDir(mediaPath)) return 'output';
+  if (dir === path.dirname(mediaPath)) return 'media';
+  return 'tmp';
 }
 
 async function startTranscription(body) {
@@ -378,7 +399,7 @@ async function startTranscription(body) {
     '--speaker-mode',
     speakerMode,
     '--output-dir',
-    path.dirname(mediaPath),
+    artifactOutputDir(mediaPath),
     '--title',
     path.basename(mediaPath, path.extname(mediaPath))
   ];
@@ -681,8 +702,9 @@ async function renameSpeakers(mediaPath, speakers) {
 async function artifactDirectories(mediaPath) {
   const mediaDir = path.dirname(mediaPath);
   const stem = path.basename(mediaPath, path.extname(mediaPath));
+  const outputDir = artifactOutputDir(mediaPath);
   const tmpDir = path.join(ROOT_DIR, 'tmp', stem);
-  const candidates = [mediaDir, tmpDir];
+  const candidates = [outputDir, mediaDir, tmpDir];
   const dirs = [];
   for (const dir of candidates) {
     if (!dirs.includes(dir) && (await exists(dir))) dirs.push(dir);

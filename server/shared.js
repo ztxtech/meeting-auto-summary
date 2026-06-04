@@ -103,6 +103,13 @@ export function isMediaFile(filePath) {
   return MEDIA_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
 
+export function artifactOutputDir(mediaPath) {
+  return path.join(
+    path.dirname(mediaPath),
+    path.basename(mediaPath, path.extname(mediaPath))
+  );
+}
+
 export function modelPath(settings) {
   return path.join(SKILL_DIR, 'model', settings.asrModel);
 }
