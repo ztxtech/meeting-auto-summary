@@ -271,6 +271,8 @@ Run from the project root:
   --speaker-mode diarize \
   --diarization-model "$SKILL_DIR/model/diar_sortformer_4spk-v1-fp16" \
   --speaker-global-clustering \
+  --chunk-strategy adaptive \
+  --chunk-duration 10 \
   --output-dir "<output-dir>" \
   --title "<input-file-stem>"
 ```
@@ -279,7 +281,18 @@ Use `--speaker-mode none` only if the user explicitly does not want speaker sepa
 
 The `--output-dir` mode writes `audio.wav`, `transcript.md`, `subtitles.srt`, and `subtitles.txt` in one ASR pass. Use `--output`/`--format` only when the user asks for a single file.
 
-For long media, expect the ASR step to take time. The diarization path uses chunked streaming to avoid Metal out-of-memory errors. Global speaker clustering is enabled by default when diarization is enabled; it reuses Sortformer encoder representations to relabel speaker segments across the full audio. Use `--no-speaker-global-clustering` only when the user wants the raw streaming Sortformer labels.
+For long media, expect the ASR step to take time. ASR chunking defaults to `--chunk-strategy adaptive`, which uses low-energy points under `--chunk-duration` as dynamic cut points instead of blindly cutting every N seconds. Use `--chunk-strategy fixed` only when deterministic fixed windows are preferred.
+
+The diarization path uses chunked streaming to avoid Metal out-of-memory errors. Global speaker clustering is enabled by default when diarization is enabled. By default it reuses Sortformer encoder representations to relabel speaker segments across the full audio. Use `--no-speaker-global-clustering` only when the user wants the raw streaming Sortformer labels.
+
+For stronger voiceprint clustering, use the optional CAMPPlus backend:
+
+```bash
+--speaker-embedding-backend campplus \
+--speaker-embedding-model "$SKILL_DIR/model/speech_campplus_sv_zh-cn_16k-common"
+```
+
+CAMPPlus requires optional `funasr`, `torch`, and `torchaudio` dependencies plus the local 3D-Speaker/CAMPPlus model. If these are missing, report that CAMPPlus is unavailable and either install them or fall back to `--speaker-embedding-backend sortformer`.
 
 If the user knows the expected participant count, add `--speaker-count <count>` to constrain global clustering. Mention that the bundled Sortformer model is a 4-speaker diarization model, so an expected count above 4 is only a best-effort global relabeling aid.
 

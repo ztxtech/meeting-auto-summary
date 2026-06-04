@@ -43,8 +43,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--chunk-duration",
         type=float,
-        default=30.0,
+        default=10.0,
         help="Maximum audio chunk duration in seconds",
+    )
+    parser.add_argument(
+        "--chunk-strategy",
+        choices=["adaptive", "fixed"],
+        default="adaptive",
+        help="ASR chunking strategy",
     )
     parser.add_argument(
         "--min-chunk-duration",
@@ -81,13 +87,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--diarization-min-duration",
         type=float,
-        default=0.0,
+        default=0.5,
         help="Minimum speaker segment duration",
     )
     parser.add_argument(
         "--diarization-merge-gap",
         type=float,
-        default=0.0,
+        default=0.2,
         help="Maximum gap to merge speaker segments",
     )
     parser.add_argument(
@@ -110,9 +116,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Disable global speaker relabeling after diarization",
     )
     parser.add_argument(
+        "--speaker-embedding-backend",
+        choices=["sortformer", "campplus"],
+        default="sortformer",
+        help="Embedding backend for global speaker clustering",
+    )
+    parser.add_argument(
+        "--speaker-embedding-model",
+        type=Path,
+        help="Path to local CAMPPlus/3D-Speaker embedding model directory",
+    )
+    parser.add_argument(
         "--speaker-clustering-threshold",
         type=float,
-        default=0.9,
+        default=0.82,
         help="Cosine threshold for global speaker clustering",
     )
     parser.add_argument(
@@ -162,11 +179,13 @@ def run(args: argparse.Namespace) -> int:
             model_path,
             args.language,
             chunk_duration=args.chunk_duration,
+            chunk_strategy=args.chunk_strategy,
             min_chunk_duration=args.min_chunk_duration,
             max_tokens=args.max_tokens,
             prefill_step_size=args.prefill_step_size,
             progress=_asr_progress,
         )
+        _ensure_transcript_has_text(transcript)
         if args.speaker_mode == "diarize":
             _progress("Running speaker diarization")
             transcript = diarize_transcript(
@@ -178,6 +197,8 @@ def run(args: argparse.Namespace) -> int:
                 merge_gap=args.diarization_merge_gap,
                 chunk_duration=args.diarization_chunk_duration,
                 global_clustering=args.speaker_global_clustering,
+                embedding_backend=args.speaker_embedding_backend,
+                embedding_model_path=args.speaker_embedding_model,
                 clustering_threshold=args.speaker_clustering_threshold,
                 speaker_count=args.speaker_count,
             )
@@ -208,6 +229,15 @@ def _asr_progress(index: int, total: int, start: float, end: float) -> None:
     _progress(
         f"Running ASR chunk {index}/{total} "
         f"({format_duration(start)}-{format_duration(end)})"
+    )
+
+
+def _ensure_transcript_has_text(transcript) -> None:
+    if transcript.text.strip() or any(segment.text.strip() for segment in transcript.segments):
+        return
+    raise RuntimeError(
+        "ASR completed but did not return any text. The audio may be silent, muted, "
+        "too quiet, or in a language unsupported by the selected model/settings."
     )
 
 
@@ -242,12 +272,12 @@ def _resolve_diarization_model_path(args: argparse.Namespace) -> Path | None:
 
 
 def _write_output_dir(transcript, output_dir: Path, title: str) -> None:
-    outputs = {
-        "transcript.md": render_transcript(transcript, "md", title),
-        "subtitles.srt": render_transcript(transcript, "srt"),
-        "subtitles.txt": render_transcript(transcript, "txt"),
-    }
-    for filename, content in outputs.items():
+    for filename, output_format, output_title in [
+        ("transcript.md", "md", title),
+        ("subtitles.txt", "txt", None),
+        ("subtitles.srt", "srt", None),
+    ]:
+        content = render_transcript(transcript, output_format, output_title)
         (output_dir / filename).write_text(content, encoding="utf-8")
 
 

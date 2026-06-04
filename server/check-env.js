@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { stat } from 'node:fs/promises';
-import { diarizationModelPath, exists, modelPath, pythonPath, readSettings, SKILL_DIR } from './shared.js';
+import { campplusModelPath, diarizationModelPath, exists, modelPath, pythonPath, readSettings, SKILL_DIR } from './shared.js';
 
 function run(command, args, options = {}) {
   return new Promise((resolve) => {
@@ -71,6 +71,16 @@ export async function checkEnvironment() {
       ok: mlx.code === 0,
       detail: mlx.code === 0 ? 'mlx_audio import succeeded' : mlx.stderr || mlx.stdout
     });
+
+    const campplusDeps = await run(py, ['-c', 'import funasr, torch; print("campplus deps ok")']);
+    checks.push({
+      id: 'campplus_deps',
+      label: 'CAMPPlus dependencies',
+      ok: campplusDeps.code === 0,
+      detail: campplusDeps.code === 0
+        ? 'funasr and torch import succeeded'
+        : 'Optional: install funasr torch torchaudio to enable CAMPPlus speaker embeddings'
+    });
   }
 
   checks.push({
@@ -85,6 +95,13 @@ export async function checkEnvironment() {
     label: 'Speaker diarization model',
     ok: await dirOk(diarizationModelPath()),
     detail: diarizationModelPath()
+  });
+
+  checks.push({
+    id: 'campplus_model',
+    label: 'CAMPPlus speaker model',
+    ok: await dirOk(campplusModelPath()),
+    detail: campplusModelPath()
   });
 
   return { checks, settings };

@@ -9,6 +9,7 @@ import { checkEnvironment } from './check-env.js';
 import { deployEnvironment } from './deploy-env.js';
 import { installProjectSkills } from './install-project-skills.js';
 import {
+  campplusModelPath,
   diarizationModelPath,
   exists,
   expandHome,
@@ -384,13 +385,30 @@ async function startTranscription(body) {
 
   const language = body.recognitionLanguage || settings.recognitionLanguage;
   if (language && language !== 'auto') args.push('--language', language);
+  const chunkDuration = Number(body.asrChunkDuration || settings.asrChunkDuration || 10);
+  if (Number.isFinite(chunkDuration) && chunkDuration > 0) {
+    args.push('--chunk-duration', String(Math.min(60, Math.max(3, chunkDuration))));
+  }
+  const chunkStrategy = body.asrChunkStrategy || settings.asrChunkStrategy || 'adaptive';
+  args.push('--chunk-strategy', chunkStrategy === 'fixed' ? 'fixed' : 'adaptive');
   if (speakerMode === 'diarize') {
     args.push(
       '--diarization-model',
       diarizationModelPath(),
       '--speaker-global-clustering'
     );
+    const embeddingBackend = body.speakerEmbeddingBackend || settings.speakerEmbeddingBackend || 'sortformer';
+    args.push('--speaker-embedding-backend', embeddingBackend === 'campplus' ? 'campplus' : 'sortformer');
+    if (embeddingBackend === 'campplus') {
+      args.push('--speaker-embedding-model', campplusModelPath());
+    }
     if (body.speakerCount) args.push('--speaker-count', String(body.speakerCount));
+    if (body.speakerClusteringThreshold) {
+      args.push(
+        '--speaker-clustering-threshold',
+        String(body.speakerClusteringThreshold)
+      );
+    }
   }
 
   const id = randomUUID();
@@ -437,6 +455,13 @@ async function startModelDownload(body) {
       localDir: diarizationModelPath()
     });
   }
+  if (body.campplus) {
+    downloads.push({
+      provider: 'modelscope',
+      repo: 'iic/speech_campplus_sv_zh-cn_16k-common',
+      localDir: campplusModelPath()
+    });
+  }
   if (!downloads.length) throw new Error('No model selected for download');
 
   const id = randomUUID();
@@ -472,9 +497,12 @@ async function runDownloadsSequentially(job, downloads) {
 
 function runDownload(job, item) {
   return new Promise((resolve) => {
-    const hfCommand = preferredHfCommand();
-    job.command = [hfCommand, 'download', item.repo, '--local-dir', item.localDir];
-    const child = spawn(hfCommand, ['download', item.repo, '--local-dir', item.localDir], {
+    const command = item.provider === 'modelscope' ? preferredModelScopeCommand() : preferredHfCommand();
+    const args = item.provider === 'modelscope'
+      ? ['download', '--model', item.repo, '--local_dir', item.localDir]
+      : ['download', item.repo, '--local-dir', item.localDir];
+    job.command = [command, ...args];
+    const child = spawn(command, args, {
       cwd: ROOT_DIR,
       stdio: ['ignore', 'pipe', 'pipe']
     });
@@ -534,6 +562,12 @@ function preferredHfCommand() {
     if (syncExists(candidate)) return candidate;
   }
   return 'hf';
+}
+
+function preferredModelScopeCommand() {
+  const candidate = path.join(SKILL_DIR, '.venv', 'bin', 'modelscope');
+  if (syncExists(candidate)) return candidate;
+  return 'modelscope';
 }
 
 function syncExists(targetPath) {

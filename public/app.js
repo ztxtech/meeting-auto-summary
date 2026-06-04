@@ -46,6 +46,11 @@ const els = {
   copyContextPanelBtn: document.querySelector('#copyContextPanelBtn'),
   videoFrame: document.querySelector('#videoFrame'),
   videoPlayer: document.querySelector('#videoPlayer'),
+  videoControls: document.querySelector('#videoControls'),
+  videoPlayBtn: document.querySelector('#videoPlayBtn'),
+  videoSeek: document.querySelector('#videoSeek'),
+  videoCurrentTime: document.querySelector('#videoCurrentTime'),
+  videoDuration: document.querySelector('#videoDuration'),
   audioFrame: document.querySelector('#audioFrame'),
   audioPlayer: document.querySelector('#audioPlayer'),
   audioTitle: document.querySelector('#audioTitle'),
@@ -67,7 +72,11 @@ const els = {
   copyArtifactPathBtn: document.querySelector('#copyArtifactPathBtn'),
   speakerMode: document.querySelector('#speakerMode'),
   speakerCount: document.querySelector('#speakerCount'),
+  speakerEmbeddingBackend: document.querySelector('#speakerEmbeddingBackend'),
+  speakerClusteringThreshold: document.querySelector('#speakerClusteringThreshold'),
   recognitionLanguage: document.querySelector('#recognitionLanguage'),
+  asrChunkDuration: document.querySelector('#asrChunkDuration'),
+  asrChunkStrategy: document.querySelector('#asrChunkStrategy'),
   transcribeBtn: document.querySelector('#transcribeBtn'),
   jobStatus: document.querySelector('#jobStatus'),
   jobStage: document.querySelector('#jobStage'),
@@ -84,6 +93,7 @@ const els = {
   installSkillsBtn: document.querySelector('#installSkillsBtn'),
   downloadAsrBtn: document.querySelector('#downloadAsrBtn'),
   downloadDiarBtn: document.querySelector('#downloadDiarBtn'),
+  downloadCampplusBtn: document.querySelector('#downloadCampplusBtn'),
   envResults: document.querySelector('#envResults'),
   toast: document.querySelector('#toast')
 };
@@ -157,15 +167,26 @@ function bindEvents() {
   els.installSkillsBtn.addEventListener('click', installSkills);
   els.downloadAsrBtn.addEventListener('click', () => downloadModels({ asr: true, diarization: false }));
   els.downloadDiarBtn.addEventListener('click', () => downloadModels({ asr: false, diarization: true }));
+  els.downloadCampplusBtn.addEventListener('click', () => downloadModels({ asr: false, campplus: true }));
 
   document.querySelectorAll('.tab').forEach((button) => {
     button.addEventListener('click', () => switchTab(button.dataset.tab));
   });
 
   [els.videoPlayer, els.audioPlayer].forEach((player) => {
-    player.addEventListener('timeupdate', () => markActiveSubtitle(player.currentTime));
+    player.addEventListener('timeupdate', () => {
+      markActiveSubtitle(player.currentTime);
+      if (player === els.videoPlayer) updateVideoControls();
+    });
   });
-  els.videoPlayer.addEventListener('loadedmetadata', updateVideoFrame);
+  els.videoPlayer.addEventListener('loadedmetadata', () => {
+    updateVideoFrame();
+    updateVideoControls();
+  });
+  els.videoPlayer.addEventListener('play', updateVideoControls);
+  els.videoPlayer.addEventListener('pause', updateVideoControls);
+  els.videoPlayBtn.addEventListener('click', toggleVideoPlayback);
+  els.videoSeek.addEventListener('input', seekVideoFromControl);
   window.addEventListener('resize', updateVideoFrame);
   bindResizeHandle();
   applyWorkbenchSplit();
@@ -175,7 +196,11 @@ async function loadSettings() {
   const data = await api('/api/settings');
   state.settings = data.settings;
   els.speakerMode.value = data.settings.speakerMode;
+  els.speakerEmbeddingBackend.value = data.settings.speakerEmbeddingBackend || 'sortformer';
+  els.speakerClusteringThreshold.value = data.settings.speakerClusteringThreshold || 0.82;
   els.recognitionLanguage.value = data.settings.recognitionLanguage;
+  els.asrChunkDuration.value = data.settings.asrChunkDuration || 10;
+  els.asrChunkStrategy.value = data.settings.asrChunkStrategy || 'adaptive';
   els.outputLanguage.value = data.settings.outputLanguage;
   els.translationTarget.value = data.settings.translationTarget;
   els.scanDepth.value = data.settings.scanDepth;
@@ -362,6 +387,7 @@ function renderPlayer(file) {
   const video = file.kind === 'video';
   els.videoFrame.style.display = video ? 'grid' : 'none';
   els.videoPlayer.style.display = video ? 'block' : 'none';
+  els.videoControls.style.display = video ? 'grid' : 'none';
   els.audioFrame.style.display = video ? 'none' : 'grid';
   els.audioPlayer.style.display = video ? 'none' : 'block';
   els.emptyPlayer.style.display = 'none';
@@ -519,6 +545,31 @@ function seekTo(seconds) {
   player.play().catch(() => {});
 }
 
+function toggleVideoPlayback() {
+  if (!els.videoPlayer.src) return;
+  if (els.videoPlayer.paused) {
+    els.videoPlayer.play().catch(() => {});
+  } else {
+    els.videoPlayer.pause();
+  }
+}
+
+function seekVideoFromControl() {
+  if (!els.videoPlayer.src) return;
+  els.videoPlayer.currentTime = Number(els.videoSeek.value || 0);
+  updateVideoControls();
+}
+
+function updateVideoControls() {
+  const duration = Number.isFinite(els.videoPlayer.duration) ? els.videoPlayer.duration : 0;
+  const current = Number.isFinite(els.videoPlayer.currentTime) ? els.videoPlayer.currentTime : 0;
+  els.videoSeek.max = String(duration || 0);
+  els.videoSeek.value = String(Math.min(current, duration || current));
+  els.videoCurrentTime.textContent = formatTime(current);
+  els.videoDuration.textContent = formatTime(duration);
+  els.videoPlayBtn.textContent = els.videoPlayer.paused ? '▶' : '||';
+}
+
 function markActiveSubtitle(seconds) {
   let active = null;
   let activeIndex = -1;
@@ -560,6 +611,10 @@ async function startTranscription() {
         mediaPath: state.selectedMedia.path,
         speakerMode: els.speakerMode.value,
         speakerCount: normalizedSpeakerCount(),
+        speakerEmbeddingBackend: els.speakerEmbeddingBackend.value,
+        speakerClusteringThreshold: normalizedSpeakerClusteringThreshold(),
+        asrChunkStrategy: els.asrChunkStrategy.value,
+        asrChunkDuration: normalizedAsrChunkDuration(),
         recognitionLanguage: els.recognitionLanguage.value
       }
     });
@@ -575,6 +630,18 @@ function normalizedSpeakerCount() {
   const value = Number(els.speakerCount.value || 0);
   if (!Number.isInteger(value) || value <= 0) return null;
   return value;
+}
+
+function normalizedSpeakerClusteringThreshold() {
+  const value = Number(els.speakerClusteringThreshold.value || 0);
+  if (!Number.isFinite(value)) return 0.82;
+  return Math.min(0.98, Math.max(0.5, value));
+}
+
+function normalizedAsrChunkDuration() {
+  const value = Number(els.asrChunkDuration.value || 0);
+  if (!Number.isFinite(value)) return 10;
+  return Math.min(60, Math.max(3, Math.round(value)));
 }
 
 async function restoreJobForSelectedMedia() {
@@ -684,8 +751,8 @@ function formatJobLogs(job) {
 function jobStageText(job) {
   if (!job) return '尚未开始';
   if (job.status === 'completed') return '转写完成';
-  if (job.status === 'failed') return '转写失败';
   const text = formatJobLogs(job);
+  if (job.status === 'failed') return jobFailureText(text);
   if (text.includes('Writing output files')) return '写入字幕和转写稿';
   if (text.includes('Running speaker diarization')) return '区分说话人';
   const chunk = latestAsrChunk(text);
@@ -695,6 +762,23 @@ function jobStageText(job) {
   if (text.includes('Loading ASR model')) return '加载识别模型';
   if (text.includes('Downloading ')) return '下载模型中';
   return '任务运行中';
+}
+
+function jobFailureText(text) {
+  const error = latestJobError(text);
+  if (!error) return '转写失败';
+  if (error.includes('near silent') || error.includes('did not return any text')) {
+    return '转写失败：未检测到有效语音';
+  }
+  if (error.includes('SRT output requires timestamped segments')) {
+    return '转写失败：识别结果没有时间戳';
+  }
+  return `转写失败：${error}`;
+}
+
+function latestJobError(text) {
+  const matches = Array.from(text.matchAll(/Error:\s*([^\n]+)/g));
+  return matches.at(-1)?.[1]?.trim() || '';
 }
 
 function jobProgressValue(job) {
@@ -737,7 +821,11 @@ async function saveSettings() {
   const settings = {
     ...state.settings,
     speakerMode: els.speakerMode.value,
+    speakerEmbeddingBackend: els.speakerEmbeddingBackend.value,
+    speakerClusteringThreshold: normalizedSpeakerClusteringThreshold(),
     recognitionLanguage: els.recognitionLanguage.value,
+    asrChunkStrategy: els.asrChunkStrategy.value,
+    asrChunkDuration: normalizedAsrChunkDuration(),
     outputLanguage: els.outputLanguage.value,
     translationTarget: els.translationTarget.value,
     asrModel: els.asrModel.value,
@@ -966,12 +1054,14 @@ function updateVideoFrame() {
     : 16 / 9;
   const container = els.videoFrame.parentElement;
   if (!container) return;
-  const width = Math.max(320, container.clientWidth);
-  const subtitleReserve = Math.min(420, Math.max(260, window.innerHeight * 0.34));
-  const maxHeight = Math.max(220, window.innerHeight - 112 - subtitleReserve);
-  const availableHeight = Math.max(220, Math.min(maxHeight, width / ratio));
+  const width = Math.max(320, container.clientWidth - 28);
+  const controlsHeight = 52;
+  const chromeReserve = 132;
+  const timelineReserve = Math.min(360, Math.max(220, window.innerHeight * 0.28));
+  const maxHeight = Math.max(260, window.innerHeight - chromeReserve - timelineReserve);
+  const availableHeight = Math.max(260, Math.min(maxHeight, width / ratio + controlsHeight));
   els.videoFrame.style.height = `${Math.round(availableHeight)}px`;
-  els.videoFrame.style.aspectRatio = `${ratio}`;
+  els.videoFrame.style.aspectRatio = '';
 }
 
 function parseSrt(content) {

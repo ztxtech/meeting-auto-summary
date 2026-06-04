@@ -56,7 +56,13 @@
         <section class="media-column">
           <div class="player-panel">
             <div id="videoFrame" class="video-frame">
-              <video id="videoPlayer" controls playsinline></video>
+              <video id="videoPlayer" playsinline></video>
+              <div class="media-controls" id="videoControls">
+                <button id="videoPlayBtn" class="media-control-button" type="button" title="播放/暂停">▶</button>
+                <span id="videoCurrentTime" class="media-time">00:00</span>
+                <input id="videoSeek" class="media-seek" type="range" min="0" max="0" value="0" step="0.1" aria-label="视频进度">
+                <span id="videoDuration" class="media-time">00:00</span>
+              </div>
             </div>
             <div id="audioFrame" class="audio-frame">
               <div class="audio-art">♪</div>
@@ -138,11 +144,33 @@
               <input id="speakerCount" type="number" min="1" max="20" step="1" placeholder="自动">
             </div>
             <div class="field">
+              <label for="speakerEmbeddingBackend">声纹聚类模型</label>
+              <select id="speakerEmbeddingBackend">
+                <option value="sortformer">Sortformer</option>
+                <option value="campplus">CAMPPlus</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="speakerClusteringThreshold">声纹合并阈值</label>
+              <input id="speakerClusteringThreshold" type="number" min="0.5" max="0.98" step="0.01" value="0.82">
+            </div>
+            <div class="field">
               <label for="recognitionLanguage">识别语言</label>
               <select id="recognitionLanguage">
                 <option value="auto">自动</option>
                 <option value="zh">中文</option>
                 <option value="en">English</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="asrChunkDuration">ASR 分段秒数</label>
+              <input id="asrChunkDuration" type="number" min="3" max="60" step="1" value="10">
+            </div>
+            <div class="field">
+              <label for="asrChunkStrategy">ASR 分段策略</label>
+              <select id="asrChunkStrategy">
+                <option value="adaptive">自适应</option>
+                <option value="fixed">固定秒数</option>
               </select>
             </div>
             <button id="transcribeBtn" class="primary wide" type="button">开始转写</button>
@@ -218,6 +246,7 @@
           <button id="installSkillsBtn" class="secondary" type="button">安装项目 Skills</button>
           <button id="downloadAsrBtn" class="secondary" type="button">下载 ASR 模型</button>
           <button id="downloadDiarBtn" class="secondary" type="button">下载说话人模型</button>
+          <button id="downloadCampplusBtn" class="secondary" type="button">下载 CAMPPlus 模型</button>
         </div>
         <div id="envResults" class="env-results"></div>
       </section>

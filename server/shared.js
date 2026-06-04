@@ -48,6 +48,10 @@ const DEFAULT_SETTINGS = {
   outputLanguage: 'zh',
   translationTarget: 'en',
   speakerMode: 'diarize',
+  speakerEmbeddingBackend: 'sortformer',
+  speakerClusteringThreshold: 0.82,
+  asrChunkStrategy: 'adaptive',
+  asrChunkDuration: 10,
   asrModel: 'Qwen3-ASR-0.6B-6bit',
   installTargets: ['codex', 'claude', 'opencode'],
   scanDepth: 12
@@ -105,6 +109,10 @@ export function modelPath(settings) {
 
 export function diarizationModelPath() {
   return path.join(SKILL_DIR, 'model', 'diar_sortformer_4spk-v1-fp16');
+}
+
+export function campplusModelPath() {
+  return path.join(SKILL_DIR, 'model', 'speech_campplus_sv_zh-cn_16k-common');
 }
 
 export function pythonPath() {
